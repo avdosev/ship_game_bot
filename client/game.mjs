@@ -9,7 +9,7 @@ export function getNextCommand(gameState) {
     const homePort = getHomePort(gameState);
     const ship = gameState.ship;
     const shipOnHome = isEqualPosition(ship, homePort);
-    let command = "WAIT";
+    let command = 'WAIT';
     if (shipOnHome && canLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
         return loadProduct(gameState);
@@ -46,7 +46,9 @@ function getHomePort(gameState) {
     return portsOnCurrentPosition[0];
 }
 
-
+/**
+ * считаем что корабль пуст
+ */
 function loadProduct(gameState) {
 
 }
@@ -75,6 +77,19 @@ function findOptimalPort({ship, ports, prices}) {
 }
 
 function gotoPort(gameState) {
+    const ship = gameState.ship;
     const optimalPort = findOptimalPort(gameState);
 
+    if (ship.y < optimalPort.y) {
+        return 'N'; // — North, корабль движется вверх по карте
+    }
+    if (ship.y > optimalPort.y) {
+        return 'S'; // — South, корабль движется вниз по карте
+    }
+    if (ship.x > optimalPort.x) {
+        return 'W'; // — West, корабль движется влево по карте
+    }
+    if (ship.x < optimalPort.x) {
+        return 'E'; // — East, корабль движется вправо по карте
+    }
 }
