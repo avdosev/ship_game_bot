@@ -9,18 +9,18 @@ export function getNextCommand(gameState) {
     const homePort = getHomePort(gameState);
     const ship = gameState.ship;
     const shipOnHome = isEqualPosition(ship, homePort);
+    let command = "WAIT";
     if (shipOnHome && canLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
-        loadProduct(gameState);
+        return loadProduct(gameState);
     } else if (onTradingPort(gameState)) {
-        // в идеале нужно продавать по наиболее выгодным ценам, но нет,
-        // я хочу как можно дольше сохранять имутабельность функции
-        saleProduct(gameState);
+        // TODO: в идеале нужно продавать по наиболее выгодным ценам
+        return saleProduct(gameState);
     } else if (shipOnHome && !canLoadProduct(gameState)) { // уже загрузили товар
         // перемещаемся к цели
-        gotoPort(gameState);
+        return gotoPort(gameState);
     }
-    return 'WAIT'
+    return command;
 }
 
 //орррророоророороорооооорооорррррооорр
@@ -56,7 +56,25 @@ function saleProduct(gameState) {
 
 }
 
+function profitOnSale(ship, port) {
+
+}
+
+
+function findOptimalPort({ship, ports, prices}) {
+    return ports.reduce((max_port, port) => {
+        const profitFromCurrentPort = profitOnSale(ship, port);
+        const profitFromMaxPort = profitOnSale(ship, max_port);
+        if (profitFromCurrentPort > profitFromCurrentPort) {
+            return port;
+        } else {
+            // TODO: норм варик оперировать расстоянием
+            return max_port;
+        }
+    }, ports[0]);
+}
 
 function gotoPort(gameState) {
+    const optimalPort = findOptimalPort(gameState);
 
 }
