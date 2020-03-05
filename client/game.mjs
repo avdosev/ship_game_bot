@@ -12,10 +12,12 @@ export function getNextCommand(gameState) {
     let command = 'WAIT';
     if (shipOnHome && canLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
-        return loadProduct(gameState);
+        const product = getProductForLoad(gameState);
+        command = `LOAD ${product.name} ${product.amount}`
     } else if (onTradingPort(gameState)) {
         // TODO: в идеале нужно продавать по наиболее выгодным ценам
-        return saleProduct(gameState);
+        const product = getProductForSale(gameState);
+        command = `SELL ${product.name} ${product.amount}`
     } else if (shipOnHome && !canLoadProduct(gameState)) { // уже загрузили товар
         // перемещаемся к цели
         return gotoPort(gameState);
@@ -23,7 +25,7 @@ export function getNextCommand(gameState) {
     return command;
 }
 
-//орррророоророороорооооорооорррррооорр
+
 function canLoadProduct(gameState) {
     return gameState.ship.goods.length == 0;
 }
@@ -49,24 +51,28 @@ function getHomePort(gameState) {
 /**
  * считаем что корабль пуст
  */
-function loadProduct(gameState) {
-
+function getProductForLoad(gameState) {
+    const product = ``;
+    return product;
 }
 
 
-function saleProduct(gameState) {
+function getProductForSale(gameState) {
 
 }
 
-function profitOnSale(ship, port) {
-
+function profitOnSale(ship, port, prices) {
+    const price = prices.filter(price => price.portId === port.portId)[0];
+    let profit = 0;
+    profit = ship.goods.map((val, i, arr) => price[val.name]*val.amount).reduce((a, b) => a+b, profit);
+    return profit;
 }
 
 
 function findOptimalPort({ship, ports, prices}) {
     return ports.reduce((max_port, port) => {
-        const profitFromCurrentPort = profitOnSale(ship, port);
-        const profitFromMaxPort = profitOnSale(ship, max_port);
+        const profitFromCurrentPort = profitOnSale(ship, port, prices);
+        const profitFromMaxPort = profitOnSale(ship, max_port, prices);
         if (profitFromCurrentPort > profitFromCurrentPort) {
             return port;
         } else {
