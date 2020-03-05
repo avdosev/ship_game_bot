@@ -6,9 +6,7 @@ export function startGame(levelMap, gameState) {
 
 
 export function getNextCommand(gameState) {
-    const homePort = getHomePort(gameState);
-    const ship = gameState.ship;
-    const shipOnHome = isEqualPosition(ship, homePort);
+    const shipOnHome = onHomePort(gameState);
     let command = 'WAIT';
     if (shipOnHome && canLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
@@ -27,37 +25,39 @@ export function getNextCommand(gameState) {
 
 
 function canLoadProduct(gameState) {
-    return gameState.ship.goods.length == 0;
+    return gameState.ship.goods.length === 0;
 }
 
+function getCurrentPort({ship, ports}) {
+    const prts = ports.filter(port => isEqualPosition(port, ship));
+    return prts.length === 1 ? prts[0] : null;
+}
 
 function onTradingPort(gameState) {
-    const { ship, ports } = gameState;
-    return ports.reduce((acc, port) => acc || (isEqualPosition(port, ship) && !port.isHome), false);
+    const port = getCurrentPort(gameState);
+    return port ? !port.isHome : false;
 }
 
+
+function onHomePort(gameState) {
+    const port = getCurrentPort(gameState);
+    return port ? port.isHome : false;
+}
 
 function isEqualPosition(obj1, obj2) {
-    return obj1.x == obj2.x && obj1.y == obj2.y;
-}
-
-
-function getHomePort(gameState) {
-    const ship = gameState.ship;
-    const portsOnCurrentPosition = gameState.ports.filter(port => ship.x == port.x && ship.y == port.y)
-    return portsOnCurrentPosition[0];
+    return obj1.x === obj2.x && obj1.y === obj2.y;
 }
 
 /**
  * считаем что корабль пуст
  */
-function getProductForLoad(gameState) {
-    const product = ``;
+function getProductForLoad({goodsInPorts, prices, }) {
+    const product = goodsInPorts.map();
     return product;
 }
 
 
-function getProductForSale(gameState) {
+function getProductForSale({ship, prices}) {
 
 }
 
@@ -73,7 +73,7 @@ function findOptimalPort({ship, ports, prices}) {
     return ports.reduce((max_port, port) => {
         const profitFromCurrentPort = profitOnSale(ship, port, prices);
         const profitFromMaxPort = profitOnSale(ship, max_port, prices);
-        if (profitFromCurrentPort > profitFromCurrentPort) {
+        if (profitFromCurrentPort > profitFromMaxPort) {
             return port;
         } else {
             // TODO: норм варик оперировать расстоянием
