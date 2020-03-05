@@ -11,7 +11,8 @@ export function getNextCommand(gameState) {
     if (shipOnHome && canLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
         const product = getProductForLoad(gameState);
-        command = `LOAD ${product.name} ${product.amount}`
+        if (product)
+            command = `LOAD ${product.name} ${product.amount}`
     } else if (onTradingPort(gameState)) {
         // TODO: в идеале нужно продавать по наиболее выгодным ценам
         const product = getProductForSale(gameState);
@@ -52,8 +53,18 @@ function isEqualPosition(obj1, obj2) {
  * считаем что корабль пуст
  */
 function getProductForLoad({goodsInPorts, prices, }) {
-    const product = goodsInPorts.map();
-    return product;
+    const products = goodsInPorts.map(good => {
+        return {
+            'name': good.name,
+            'max_price': Math.max(...prices.map(port_price => port_price[good.name])),
+            'amount': Math.floor(MAX_LOAD_SHIP / good.volume),
+        }
+    });
+    const priceWithAmount = (product) => product && product.max_price * product.amount;
+    const optimalProduct = products.reduce((p, v) => {
+        return ( priceWithAmount(p) > priceWithAmount(v) ? p : v );
+    }, null);
+    return optimalProduct;
 }
 
 
