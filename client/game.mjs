@@ -33,7 +33,7 @@ export function getNextCommand(gameState) {
 function aroundPirates(gameState, radius) {
     const { pirates, ship } = gameState;
     const distance = (obj1, obj2) => Math.abs(obj1.x-obj2.x)+Math.abs(obj1.y-obj2.y);
-    return pirates.map(pirat => distance(pirat, ship) <= radius).reduce((a, b) => a || b, false);
+    return pirates.map(pirate => distance(pirate, ship) <= radius).reduce((a, b) => a || b, false);
 }
 
 
