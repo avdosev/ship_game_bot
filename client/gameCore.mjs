@@ -39,9 +39,6 @@ export default async function startGameLoop(map, state, piratesPoints = []) {
 
             const calcDuration = performance.getEntriesByName('calcNextStep')[0].duration;
 
-            if (calcDuration > MAX_CALC_DURATION) {
-                throw new Error('Слишком долгое вычисление');
-            }
 
             runCommand(command, game);
             movePirates(game);
@@ -71,10 +68,7 @@ function runStartGameFunc(map, state) {
     performance.measure('calcInit', 'initStart');
 
     const calcDuration = performance.getEntriesByName('calcInit')[0].duration;
-    if (calcDuration > MAX_INITIAL_FUNC_DURATION) {
-        renderTextOverMap('Игра окончена', `Слишком долгое вычисление`);
-        throw new Error('Слишком долгое вычисление');
-    }
+
 }
 
 function delay(time) {
