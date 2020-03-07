@@ -30,9 +30,13 @@ export function getNextCommand(gameState) {
 }
 
 
+function distance(obj1, obj2) {
+    return Math.abs(obj1.x-obj2.x)+Math.abs(obj1.y-obj2.y);
+}
+
+
 function aroundPirates(gameState, radius) {
     const { pirates, ship } = gameState;
-    const distance = (obj1, obj2) => Math.abs(obj1.x-obj2.x)+Math.abs(obj1.y-obj2.y);
     return pirates.map(pirate => distance(pirate, ship) <= radius).reduce((a, b) => a || b, false);
 }
 
@@ -93,17 +97,19 @@ function needSale(gameState) {
 function getProductForSale({ship, prices, ports}) {
     const port = getCurrentPort({ship, ports});
     const priceOnCurrentPort = getPriceByPortId(prices, port.portId);
-    const priceWithAmount = (product) => product && [product.name]*product.amount;
-    const product = ship.goods.reduce((obj1, obj2) => {
-        return ( priceWithAmount(obj1) > priceWithAmount(obj2) ? obj1 : obj2 );
+    const priceWithAmount = (product) => product && (priceOnCurrentPort[product.name]*product.amount);
+    return ship.goods.reduce((obj1, obj2) => {
+        return (priceWithAmount(obj1) > priceWithAmount(obj2) ? obj1 : obj2);
     }, null);
-    return product;
 }
 
 function profitOnSale(ship, port, price) {
     let profit = 0;
-    if (!port.isHome && price)
-        profit = ship.goods.map((val, i, arr) => price[val.name]*val.amount).reduce((a, b) => a+b, profit);
+    if (!port.isHome && price) {
+        // оперирую расстоянием, считая выгоду как прибыль в еденицу растояни (так как и во времени)
+        profit = ship.goods.map((val, i, arr) => (price[val.name]*val.amount) / distance(ship, port)).reduce((a, b) => a+b, 0);
+    }
+
     return profit;
 }
 
@@ -112,10 +118,10 @@ function findOptimalPort({ship, ports, prices}) {
     return ports.reduce((max_port, port) => {
         const profitFromCurrentPort = profitOnSale(ship, port, getPriceByPortId(prices, port.portId));
         const profitFromMaxPort = profitOnSale(ship, max_port, getPriceByPortId(prices, max_port.portId));
+
         if (profitFromCurrentPort > profitFromMaxPort) {
             return port;
         } else {
-            // TODO: норм варик оперировать расстоянием
             return max_port;
         }
     }, ports[0]);
