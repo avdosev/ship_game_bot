@@ -1,7 +1,29 @@
 const MAX_LOAD_SHIP = 368;
 
-export function startGame(levelMap, gameState) {
+class GameMap {
 
+    constructor(levelMap) {
+        this.__map = levelMap.split('\n');
+    }
+
+    get Height() {
+        return this.__map.length;
+    }
+
+    get Width() {
+        return mapLevel[0].length;
+    }
+
+    Get(y, x) {
+        return this.__map[y][x];
+    }
+}
+
+let mapLevel; // так делать не правильно, тк мы теряем иммутебльность и чистоту функций, но задачу поставили именно так, а могли класс экспортировать например
+
+export function startGame(levelMap, gameState) {
+    mapLevel = new GameMap(levelMap);
+    console.log(mapLevel);
 }
 
 
@@ -27,6 +49,36 @@ export function getNextCommand(gameState) {
         command = vector;
     }
     return command;
+}
+
+
+function BFS_search(objSource, objDestination){
+    const queue = [objSource];
+    const visited = [objSource];
+    const directions = [
+        {x: -1, y:  0},
+        {x:  1, y:  0},
+        {x:  0, y: -1},
+        {x:  0, y:  1},
+    ];
+    const isCorrectWay = obj => obj.x >= 0 && obj.x < mapLevel.Width && obj.y >= 0 && obj.y < mapLevel.Height && mapLevel.Get(obj.y, obj.x) !== '#';
+
+    while (!isEqualPosition(visited[visited.length-1], objDestination)) {
+        const node = queue.shift();
+        for (const direction of directions) {
+            const new_node = {
+                x: node.x + direction.x,
+                y: node.y + direction.y
+            };
+            if (isCorrectWay(new_node)) {
+                const {x, y} = new_node;
+                new_node.way = [...node.way, {x, y}];
+                queue.push(new_node);
+            }
+        }
+    }
+
+
 }
 
 
@@ -103,11 +155,17 @@ function getProductForSale({ship, prices, ports}) {
     }, null);
 }
 
+
+function productProfit(priceInPort, product, ship, port) {
+    return priceInPort[product.name]*product.amount / distance(ship, port);
+}
+
+
 function profitOnSale(ship, port, price) {
     let profit = 0;
     if (!port.isHome && price) {
         // оперирую расстоянием, считая выгоду как прибыль в еденицу растояни (так как и во времени)
-        profit = ship.goods.map((val, i, arr) => (price[val.name]*val.amount) / distance(ship, port)).reduce((a, b) => a+b, 0);
+        profit = ship.goods.map((val, i, arr) => productProfit(price, val, ship, port)).reduce((a, b) => a+b, 0);
     }
 
     return profit;
