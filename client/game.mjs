@@ -11,13 +11,35 @@ class GameMap {
     }
 
     get Width() {
-        return mapLevel[0].length;
+        return this.__map[0].length;
     }
 
     Get(y, x) {
         return this.__map[y][x];
     }
 }
+
+
+class PriorityQueue {
+    constructor() {
+        this._data = [];
+    }
+
+    push(obj, priority) {
+        this._data.push({obj, priority});
+        this._data.sort((a, b) => a.priority - b.priority);
+    }
+
+    pop() {
+        const elem = this._data.pop();
+        return elem || elem.obj;
+    }
+
+    get top() {
+        return this._data[this._data.length-1];
+    }
+}
+
 
 let mapLevel; // так делать не правильно, тк мы теряем иммутебльность и чистоту функций, но задачу поставили именно так, а могли класс экспортировать например
 
@@ -51,34 +73,42 @@ export function getNextCommand(gameState) {
     return command;
 }
 
-
-function BFS_search(objSource, objDestination){
-    const queue = [objSource];
-    const visited = [objSource];
+/**
+ * Поиск в ширину
+ * @param objSource
+ * @param objDestination
+ * @returns {массив точек для прохода к цели, пустота если пройти нельзя}
+ */
+function searchWay(objSource, objDestination) {
+    const queue = [{...objSource, way: []}];
+    const visited = [];
     const directions = [
         {x: -1, y:  0},
         {x:  1, y:  0},
         {x:  0, y: -1},
         {x:  0, y:  1},
     ];
+
     const isCorrectWay = obj => obj.x >= 0 && obj.x < mapLevel.Width && obj.y >= 0 && obj.y < mapLevel.Height && mapLevel.Get(obj.y, obj.x) !== '#';
 
-    while (!isEqualPosition(visited[visited.length-1], objDestination)) {
+    while (queue.length !== 0) {
         const node = queue.shift();
+        visited.push(node);
         for (const direction of directions) {
             const new_node = {
                 x: node.x + direction.x,
                 y: node.y + direction.y
             };
-            if (isCorrectWay(new_node)) {
+            if (isCorrectWay(new_node) && !visited.reduce((acc, item, arr) => acc || isEqualPosition(item, new_node), false)) {
                 const {x, y} = new_node;
                 new_node.way = [...node.way, {x, y}];
+                if (isEqualPosition(new_node, objDestination))
+                    return new_node.way;
                 queue.push(new_node);
             }
         }
     }
-
-
+    return [];
 }
 
 
@@ -190,17 +220,19 @@ function findOptimalPort({ship, ports, prices}) {
 function gotoPort(gameState) {
     const ship = gameState.ship;
     const optimalPort = findOptimalPort(gameState);
+    const way = searchWay(ship, optimalPort);
+    const point = way[0];
 
-    if (ship.y > optimalPort.y) {
+    if (ship.y > point.y) {
         return 'N'; // — North, корабль движется вверх по карте
     }
-    if (ship.y < optimalPort.y) {
+    if (ship.y < point.y) {
         return 'S'; // — South, корабль движется вниз по карте
     }
-    if (ship.x > optimalPort.x) {
+    if (ship.x > point.x) {
         return 'W'; // — West, корабль движется влево по карте
     }
-    if (ship.x < optimalPort.x) {
+    if (ship.x < point.x) {
         return 'E'; // — East, корабль движется вправо по карте
     }
     return 'WAIT'
