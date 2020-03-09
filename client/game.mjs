@@ -77,11 +77,14 @@ export function getNextCommand(gameState) {
  * Поиск в ширину
  * @param objSource
  * @param objDestination
- * @returns {массив точек для прохода к цели, пустота если пройти нельзя}
+ * @returns массив точек для прохода к цели, пустота если пройти нельзя
  */
 function searchWay(objSource, objDestination) {
     const queue = [{...objSource, way: []}];
-    const visited = [];
+    const visited = new Array(mapLevel.Height);
+    for (let i = 0; i < mapLevel.Height; i++) {
+        visited[i] = (new Array(mapLevel.Width).fill(false));
+    }
     const directions = [
         {x: -1, y:  0},
         {x:  1, y:  0},
@@ -93,17 +96,19 @@ function searchWay(objSource, objDestination) {
 
     while (queue.length !== 0) {
         const node = queue.shift();
-        visited.push(node);
+        visited[node.y][node.x] = true;
         for (const direction of directions) {
             const new_node = {
                 x: node.x + direction.x,
                 y: node.y + direction.y
             };
-            if (isCorrectWay(new_node) && !visited.reduce((acc, item, arr) => acc || isEqualPosition(item, new_node), false)) {
+            if (isCorrectWay(new_node) && !visited[new_node.y][new_node.x]) {
                 const {x, y} = new_node;
                 new_node.way = [...node.way, {x, y}];
-                if (isEqualPosition(new_node, objDestination))
+                if (isEqualPosition(new_node, objDestination)) {
+                    console.log(visited);
                     return new_node.way;
+                }
                 queue.push(new_node);
             }
         }
