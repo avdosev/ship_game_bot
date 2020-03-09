@@ -56,7 +56,7 @@ class PriorityQueue {
 
         while (index > 0) {
             // get its parent item
-            const parentIndex = (index - 1) >> 1;
+            const parentIndex = Math.floor((index - 1) / 2);
             if (this.priorities[parentIndex] <= priority) {
                 break;  // if parent priority is smaller, heap property is satisfied
             }
@@ -78,7 +78,7 @@ class PriorityQueue {
         const priority = this.priorities[index];
 
         while (index < this.length) {
-            const left = (index << 1) + 1;
+            const left = (index * 2) + 1;
             if (left >= this.length) {
                 break;  // index is a leaf node, no way to bubble down any further
             }
@@ -165,14 +165,11 @@ export function getNextCommand(gameState) {
     if (shipOnHome && canLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
         const product = getProductForLoad(gameState);
-        if (product)
-            command = `LOAD ${product.name} ${product.amount}`
+        if (product) command = `LOAD ${product.name} ${product.amount}`
     } else if (onTradingPort(gameState) && needSale(gameState)) {
-        // TODO: в идеале нужно продавать по наиболее выгодным ценам
         const product = getProductForSale(gameState);
-        if (product)
-            command = `SELL ${product.name} ${product.amount}`
-    } else { // уже загрузили товар
+        if (product) command = `SELL ${product.name} ${product.amount}`
+    } else if (gameState.ship.goods.length > 0 || haveGoodsInPort(gameState)) { // уже загрузили товар
         // перемещаемся к цели
         command = gotoPort(gameState);
     }
@@ -238,7 +235,9 @@ function distance(obj1, obj2) {
 }
 
 
-
+function haveGoodsInPort(gameState) {
+    return gameState.goodsInPort.length !== 0;
+}
 
 
 function canLoadProduct(gameState) {
@@ -273,19 +272,37 @@ function isEqualPosition(obj1, obj2) {
 /**
  * считаем что корабль пуст
  */
-function getProductForLoad({goodsInPort, prices,}) {
-    const products = goodsInPort.map(good => {
+function getProductForLoad({goodsInPort, prices, ports, ship}) {
+    const tradingPorts = ports.filter(port => !port.isHome);
+    const products = tradingPorts.map(port => {
+        const price = getPriceByPortId(prices, port.portId);
+        if (!price) return null;
+        let optimalProduct = null;
+        let max = 0;
+        for (const product of goodsInPort) {
+            if (price.hasOwnProperty(product.name)) {
+                const amountInShip = Math.min(Math.floor(MAX_LOAD_SHIP / product.volume), product.amount);
+                const profit = price[product.name]*amountInShip;
+                if (max < profit) {
+                    optimalProduct = {
+                        name: product.name,
+                        amount: amountInShip
+                    };
+                    max = profit;
+                }
+            }
+        }
         return {
-            'name': good.name,
-            'max_price': Math.max(...prices.map(port_price => port_price[good.name])),
-            'amount': Math.floor(MAX_LOAD_SHIP / good.volume),
+            product: optimalProduct,
+            priceInPort: price,
+            port
         }
     });
-    const priceWithAmount = (product) => product && product.max_price * product.amount;
-    const optimalProduct = products.reduce((p, v) => {
-        return ( priceWithAmount(p) > priceWithAmount(v) ? p : v );
-    }, null);
-    return optimalProduct;
+    const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, ship, obj.port);
+    const profitObj = products.reduce((obj1, obj2) => {
+        return (profitToPort(obj1) > profitToPort(obj2) ? obj1 : obj2);
+    }, null)
+    return profitObj && profitObj.product;
 }
 
 
