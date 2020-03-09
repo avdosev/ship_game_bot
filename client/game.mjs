@@ -23,14 +23,17 @@ class GameMap {
 class PriorityQueue {
     constructor() {
         this._data = [];
+        this._sorted = false;
     }
 
     push(obj, priority) {
+        this._sorted = false;
         this._data.push({obj, priority});
-        this._data.sort((a, b) => a.priority - b.priority);
     }
 
     pop() {
+        if (!this._sorted)
+            this._data.sort((a, b) => a.priority - b.priority);
         const elem = this._data.pop();
         return elem || elem.obj;
     }
@@ -45,7 +48,6 @@ let mapLevel; // так делать не правильно, тк мы теря
 
 export function startGame(levelMap, gameState) {
     mapLevel = new GameMap(levelMap);
-    console.log(mapLevel);
 }
 
 
@@ -106,7 +108,6 @@ function searchWay(objSource, objDestination) {
                 const {x, y} = new_node;
                 new_node.way = [...node.way, {x, y}];
                 if (isEqualPosition(new_node, objDestination)) {
-                    console.log(visited);
                     return new_node.way;
                 }
                 queue.push(new_node);
