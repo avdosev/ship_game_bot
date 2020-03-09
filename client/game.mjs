@@ -6,8 +6,8 @@ class GameMap {
         this.__map = levelMap.split('\n');
         const pr = new Array(this.Height);
         for (let i = 0; i < this.Height; i++) {
-            pr[i] = (new Array(this.Width).fill(false));
-        };
+            pr[i] = (new Uint8Array(this.Width).fill(false));
+        }
         this.__pirates = pr;
     }
 
