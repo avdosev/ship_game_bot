@@ -43,29 +43,110 @@ class GameMap {
 
 
 class PriorityQueue {
-    constructor() {
-        this._data = [];
-        this._sorted = false;
+
+    constructor () {
+        this.keys = [];
+        this.priorities = [];
+        this.length = 0;
     }
 
-    push(obj, priority) {
-        this._sorted = false;
-        this._data.push({obj, priority});
+    bubbleUp(index) {
+        const key = this.keys[index];
+        const priority = this.priorities[index];
+
+        while (index > 0) {
+            // get its parent item
+            const parentIndex = (index - 1) >> 1;
+            if (this.priorities[parentIndex] <= priority) {
+                break;  // if parent priority is smaller, heap property is satisfied
+            }
+            // bubble parent down so the item can go up
+            this.keys[index] = this.keys[parentIndex];
+            this.priorities[index] = this.priorities[parentIndex];
+
+            // repeat for the next level
+            index = parentIndex;
+        }
+
+        // we finally found the place where the initial item should be; write it there
+        this.keys[index] = key;
+        this.priorities[index] = priority;
+    }
+
+    bubbleDown(index) {
+        const key = this.keys[index];
+        const priority = this.priorities[index];
+
+        while (index < this.length) {
+            const left = (index << 1) + 1;
+            if (left >= this.length) {
+                break;  // index is a leaf node, no way to bubble down any further
+            }
+
+            // pick the left child
+            let childPriority = this.priorities[left];
+            let childKey = this.keys[left];
+            let childIndex = left;
+
+            // if there's a right child, choose the child with the smallest priority
+            const right = left + 1;
+            if (right < this.length) {
+                const rightPriority = this.priorities[right];
+                if (rightPriority < childPriority) {
+                    childPriority = rightPriority;
+                    childKey = this.keys[right];
+                    childIndex = right;
+                }
+            }
+
+            if (childPriority >= priority) {
+                break;  // if children have higher priority, heap property is satisfied
+            }
+
+            // bubble the child up to where the parent is
+            this.keys[index] = childKey;
+            this.priorities[index] = childPriority;
+
+            // repeat for the next level
+            index = childIndex;
+        }
+
+        // we finally found the place where the initial item should be; write it there
+        this.keys[index] = key;
+        this.priorities[index] = priority;
+    }
+
+    /**
+     * @param {*} key the identifier of the object to be pushed into the heap
+     * @param {Number} priority 32-bit value corresponding to the priority of this key
+     */
+    push(key, priority) {
+        this.keys.push(key);
+        this.priorities.push(priority);
+        this.bubbleUp(this.length);
+        this.length++;
     }
 
     shift() {
-        if (!this._sorted)
-            this._data.sort((a, b) => b.priority - a.priority);
-        const elem = this._data.pop();
-        return elem && elem.obj;
-    }
+        if (this.length === 0) {
+            return undefined;
+        }
+        const key = this.keys[0];
 
-    get top() {
-        return this._data[this._data.length-1];
-    }
+        this.length--;
 
-    get length() {
-        return this._data.length;
+        if (this.length > 0) {
+            this.keys[0] = this.keys[this.length];
+            this.keys.pop();
+            this.priorities[0] = this.priorities[this.length];
+            this.priorities.pop();
+            this.bubbleDown(0);
+        } else {
+            this.keys.pop();
+            this.priorities.pop();
+        }
+
+        return key;
     }
 }
 
@@ -91,10 +172,7 @@ export function getNextCommand(gameState) {
         const product = getProductForSale(gameState);
         if (product)
             command = `SELL ${product.name} ${product.amount}`
-    } /* else if (aroundPirates(gameState, 5) && !aroundPirates(gameState, 2)) {
-        const bool = aroundPirates(gameState, 3);
-        command = bool ? "WAIT" : gotoOutPirates(gameState);
-    } */ else { // уже загрузили товар
+    } else { // уже загрузили товар
         // перемещаемся к цели
         command = gotoPort(gameState);
     }
@@ -160,15 +238,13 @@ function distance(obj1, obj2) {
 }
 
 
-function aroundPirates(gameState, radius) {
-    const { pirates, ship } = gameState;
-    return pirates.map(pirate => distance(pirate, ship) <= radius).reduce((a, b) => a || b, false);
-}
+
 
 
 function canLoadProduct(gameState) {
-    return gameState.ship.goods.length === 0;
+    return gameState.ship.goods.length === 0 && gameState.goodsInPort.length !== 0;
 }
+
 
 function getCurrentPort({ship, ports}) {
     const prts = ports.filter(port => isEqualPosition(port, ship));
@@ -197,7 +273,7 @@ function isEqualPosition(obj1, obj2) {
 /**
  * считаем что корабль пуст
  */
-function getProductForLoad({goodsInPort, prices, }) {
+function getProductForLoad({goodsInPort, prices,}) {
     const products = goodsInPort.map(good => {
         return {
             'name': good.name,
