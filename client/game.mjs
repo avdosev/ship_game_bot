@@ -31,15 +31,19 @@ class PriorityQueue {
         this._data.push({obj, priority});
     }
 
-    pop() {
+    shift() {
         if (!this._sorted)
             this._data.sort((a, b) => a.priority - b.priority);
         const elem = this._data.pop();
-        return elem || elem.obj;
+        return elem && elem.obj;
     }
 
     get top() {
         return this._data[this._data.length-1];
+    }
+
+    get length() {
+        return this._data.length;
     }
 }
 
@@ -82,7 +86,8 @@ export function getNextCommand(gameState) {
  * @returns массив точек для прохода к цели, пустота если пройти нельзя
  */
 function searchWay(objSource, objDestination) {
-    const queue = [{...objSource, way: []}];
+    const queue = new PriorityQueue();
+    queue.push({...objSource, way: []}, 0);
     const visited = new Array(mapLevel.Height);
     for (let i = 0; i < mapLevel.Height; i++) {
         visited[i] = (new Array(mapLevel.Width).fill(false));
@@ -108,9 +113,10 @@ function searchWay(objSource, objDestination) {
                 const {x, y} = new_node;
                 new_node.way = [...node.way, {x, y}];
                 if (isEqualPosition(new_node, objDestination)) {
+                    console.log(visited);
                     return new_node.way;
                 }
-                queue.push(new_node);
+                queue.push(new_node, new_node.way.length - manhattanDistance(new_node, objDestination));
             }
         }
     }
@@ -118,8 +124,13 @@ function searchWay(objSource, objDestination) {
 }
 
 
-function distance(obj1, obj2) {
+function manhattanDistance(obj1, obj2) {
     return Math.abs(obj1.x-obj2.x)+Math.abs(obj1.y-obj2.y);
+}
+
+
+function distance(obj1, obj2) {
+    return manhattanDistance(obj1, obj2);
 }
 
 
