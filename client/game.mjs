@@ -43,110 +43,103 @@ class GameMap {
 
 
 class PriorityQueue {
-
-    constructor () {
-        this.keys = [];
-        this.priorities = [];
-        this.length = 0;
+    constructor() {
+        this._keys = [];
+        this._priorities = [];
+        this._length = 0;
     }
 
     bubbleUp(index) {
-        const key = this.keys[index];
-        const priority = this.priorities[index];
+        const key = this._keys[index];
+        const priority = this._priorities[index];
 
         while (index > 0) {
-            // get its parent item
-            const parentIndex = Math.floor((index - 1) / 2);
-            if (this.priorities[parentIndex] <= priority) {
-                break;  // if parent priority is smaller, heap property is satisfied
-            }
-            // bubble parent down so the item can go up
-            this.keys[index] = this.keys[parentIndex];
-            this.priorities[index] = this.priorities[parentIndex];
 
-            // repeat for the next level
+            const parentIndex = Math.floor((index - 1) / 2);
+            if (this._priorities[parentIndex] <= priority) {
+                break;
+            }
+
+            this._keys[index] = this._keys[parentIndex];
+            this._priorities[index] = this._priorities[parentIndex];
+
             index = parentIndex;
         }
 
-        // we finally found the place where the initial item should be; write it there
-        this.keys[index] = key;
-        this.priorities[index] = priority;
+
+        this._keys[index] = key;
+        this._priorities[index] = priority;
     }
 
     bubbleDown(index) {
-        const key = this.keys[index];
-        const priority = this.priorities[index];
+        const key = this._keys[index];
+        const priority = this._priorities[index];
 
-        while (index < this.length) {
+        while (index < this._length) {
             const left = (index * 2) + 1;
-            if (left >= this.length) {
-                break;  // index is a leaf node, no way to bubble down any further
+            if (left >= this._length) {
+                break;
             }
 
-            // pick the left child
-            let childPriority = this.priorities[left];
-            let childKey = this.keys[left];
+            let childPriority = this._priorities[left];
+            let childKey = this._keys[left];
             let childIndex = left;
 
-            // if there's a right child, choose the child with the smallest priority
             const right = left + 1;
-            if (right < this.length) {
-                const rightPriority = this.priorities[right];
+            if (right < this._length) {
+                const rightPriority = this._priorities[right];
                 if (rightPriority < childPriority) {
                     childPriority = rightPriority;
-                    childKey = this.keys[right];
+                    childKey = this._keys[right];
                     childIndex = right;
                 }
             }
 
             if (childPriority >= priority) {
-                break;  // if children have higher priority, heap property is satisfied
+                break;
             }
 
-            // bubble the child up to where the parent is
-            this.keys[index] = childKey;
-            this.priorities[index] = childPriority;
+            this._keys[index] = childKey;
+            this._priorities[index] = childPriority;
 
-            // repeat for the next level
             index = childIndex;
         }
 
-        // we finally found the place where the initial item should be; write it there
-        this.keys[index] = key;
-        this.priorities[index] = priority;
+        this._keys[index] = key;
+        this._priorities[index] = priority;
     }
 
-    /**
-     * @param {*} key the identifier of the object to be pushed into the heap
-     * @param {Number} priority 32-bit value corresponding to the priority of this key
-     */
     push(key, priority) {
-        this.keys.push(key);
-        this.priorities.push(priority);
-        this.bubbleUp(this.length);
-        this.length++;
+        this._keys.push(key);
+        this._priorities.push(priority);
+        this.bubbleUp(this._length);
+        this._length++;
     }
 
     shift() {
-        if (this.length === 0) {
+        if (this._length === 0) {
             return undefined;
         }
-        const key = this.keys[0];
+        const key = this._keys[0];
 
-        this.length--;
+        this._length--;
 
-        if (this.length > 0) {
-            this.keys[0] = this.keys[this.length];
-            this.keys.pop();
-            this.priorities[0] = this.priorities[this.length];
-            this.priorities.pop();
+        if (this._length > 0) {
+            this._keys[0] = this._keys[this._length];
+            this._keys.pop();
+            this._priorities[0] = this._priorities[this._length];
+            this._priorities.pop();
             this.bubbleDown(0);
         } else {
-            this.keys.pop();
-            this.priorities.pop();
+            this._keys.pop();
+            this._priorities.pop();
         }
 
         return key;
+    }
+
+    get length() {
+        return this._length;
     }
 }
 
