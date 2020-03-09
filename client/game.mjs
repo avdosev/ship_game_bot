@@ -49,7 +49,7 @@ class PriorityQueue {
         this._length = 0;
     }
 
-    bubbleUp(index) {
+    heapUp(index) {
         const key = this._keys[index];
         const priority = this._priorities[index];
 
@@ -71,7 +71,7 @@ class PriorityQueue {
         this._priorities[index] = priority;
     }
 
-    bubbleDown(index) {
+    heapDown(index) {
         const key = this._keys[index];
         const priority = this._priorities[index];
 
@@ -112,7 +112,7 @@ class PriorityQueue {
     push(key, priority) {
         this._keys.push(key);
         this._priorities.push(priority);
-        this.bubbleUp(this._length);
+        this.heapUp(this._length);
         this._length++;
     }
 
@@ -129,7 +129,7 @@ class PriorityQueue {
             this._keys.pop();
             this._priorities[0] = this._priorities[this._length];
             this._priorities.pop();
-            this.bubbleDown(0);
+            this.heapDown(0);
         } else {
             this._keys.pop();
             this._priorities.pop();
