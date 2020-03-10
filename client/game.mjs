@@ -19,10 +19,12 @@ class GameMap {
         pirates.forEach(pirate => {
             const radius = 2;
             for (let i = -radius; i <= radius; i++) {
-                this.__pirates[pirate.y + i][pirate.x] = true;
+                if (pirate.y+i < this.Width && pirate.y+i > 0)
+                    this.__pirates[pirate.y+i][pirate.x] = true;
             }
             for (let i = -radius; i <= radius; i++) {
-                this.__pirates[pirate.y][pirate.x+i] = true;
+                if (pirate.x+i < this.Width && pirate.x+i > 0)
+                    this.__pirates[pirate.y][pirate.x+i] = true;
             }
         });
     }
