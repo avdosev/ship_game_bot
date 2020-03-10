@@ -134,9 +134,14 @@ class PriorityQueue {
 
 
 let mapLevel; // так делать не правильно, тк мы теряем иммутебльность и чистоту функций, но задачу поставили именно так, а могли класс экспортировать например
-
+let lenToPorts;
 export function startGame(levelMap, gameState) {
     mapLevel = new GameMap(levelMap);
+    lenToPorts = {};
+    const HomePort = gameState.ports.reduce((p1, p2) => p2.isHome ? p2 : p1, null);
+    gameState.ports.forEach(port => {
+        lenToPorts[port.portId] = distance(HomePort, port);
+    });
 }
 
 
@@ -280,12 +285,8 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
             port, index
         }
     });
-    const lenToPorts = products.map(obj => {
-        if (!obj) return Infinity;
-        return distance(ship, obj.port);
-    });
 
-    const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, lenToPorts[obj.index]);
+    const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, lenToPorts[obj.port.portId]);
     const profitObj = products.reduce((obj1, obj2, index) => {
         return (profitToPort(obj1) > profitToPort(obj2) ? obj1 : obj2);
     }, null);
@@ -321,13 +322,13 @@ function profitOnSale(ship, port, price) {
         // оперирую расстоянием, считая выгоду как прибыль в еденицу растояни (так как и во времени)
         profit = ship.goods.map((val, i, arr) => {
             if (price.hasOwnProperty(val.name)) {
-                if (way === null) way = searchWay(ship, port); // ленивая инициализация
-                return productProfit(price, val, isEqualPosition(ship, port) ? 0 : (way.length || Infinity));
+                // if (way === null) way = searchWay(ship, port); // ленивая инициализация
+                return productProfit(price, val, manhattanDistance(ship, port));
             }
             return 0;
         }).reduce((a, b) => a+b, 0);
     } else {
-        way = searchWay(ship, port);
+        // way = searchWay(ship, port);
     }
 
     return { profit, way };
@@ -348,6 +349,7 @@ function findOptimalPort({ship, ports, prices}) {
             idealWay = way;
         }
     }
+    idealWay = searchWay(ship, ports[indexMax]);
     return { port: ports[indexMax], way: idealWay };
 }
 
