@@ -44,36 +44,31 @@ class GameMap {
 
 class PriorityQueue {
     constructor() {
-        this._keys = [];
-        this._priorities = [];
+        this._objs = [];
         this._length = 0;
     }
 
     heapUp(index) {
-        const key = this._keys[index];
-        const priority = this._priorities[index];
+        const obj = this._objs[index];
 
         while (index > 0) {
 
             const parentIndex = Math.floor((index - 1) / 2);
-            if (this._priorities[parentIndex] <= priority) {
+            if (this._objs[parentIndex].priority <= obj.priority) {
                 break;
             }
 
-            this._keys[index] = this._keys[parentIndex];
-            this._priorities[index] = this._priorities[parentIndex];
+            this._objs[index] = this._objs[parentIndex];
 
             index = parentIndex;
         }
 
 
-        this._keys[index] = key;
-        this._priorities[index] = priority;
+        this._objs[index] = obj;
     }
 
     heapDown(index) {
-        const key = this._keys[index];
-        const priority = this._priorities[index];
+        const obj = this._objs[index];
 
         while (index < this._length) {
             const left = (index * 2) + 1;
@@ -81,37 +76,32 @@ class PriorityQueue {
                 break;
             }
 
-            let childPriority = this._priorities[left];
-            let childKey = this._keys[left];
+            let childObj = this._objs[left];
             let childIndex = left;
 
             const right = left + 1;
             if (right < this._length) {
-                const rightPriority = this._priorities[right];
-                if (rightPriority < childPriority) {
-                    childPriority = rightPriority;
-                    childKey = this._keys[right];
+                const rightObj = this._objs[right];
+                if (rightObj.priority < childObj.priority) {
+                    childObj = rightObj;
                     childIndex = right;
                 }
             }
 
-            if (childPriority >= priority) {
+            if (childObj.priority >= obj.priority) {
                 break;
             }
 
-            this._keys[index] = childKey;
-            this._priorities[index] = childPriority;
+            this._objs[index] = childObj;
 
             index = childIndex;
         }
 
-        this._keys[index] = key;
-        this._priorities[index] = priority;
+        this._objs[index] = obj;
     }
 
     push(key, priority) {
-        this._keys.push(key);
-        this._priorities.push(priority);
+        this._objs.push({key, priority});
         this.heapUp(this._length);
         this._length++;
     }
@@ -120,22 +110,19 @@ class PriorityQueue {
         if (this._length === 0) {
             return undefined;
         }
-        const key = this._keys[0];
+        const obj = this._objs[0];
 
         this._length--;
 
         if (this._length > 0) {
-            this._keys[0] = this._keys[this._length];
-            this._keys.pop();
-            this._priorities[0] = this._priorities[this._length];
-            this._priorities.pop();
+            this._objs[0] = this._objs[this._length];
+            this._objs.pop();
             this.heapDown(0);
         } else {
-            this._keys.pop();
-            this._priorities.pop();
+            this._objs.pop();
         }
 
-        return key;
+        return obj.key;
     }
 
     get length() {
@@ -196,7 +183,7 @@ function searchWay(objSource, objDestination) {
         const node = queue.shift();
 
         if (isEqualPosition(node, objDestination)) {
-            // console.log(new_node.way);
+            // console.log(visited);
             return node.way;
         }
 
@@ -267,7 +254,7 @@ function isEqualPosition(obj1, obj2) {
  */
 function getProductForLoad({goodsInPort, prices, ports, ship}) {
     const tradingPorts = ports.filter(port => !port.isHome);
-    const products = tradingPorts.map(port => {
+    const products = tradingPorts.map((port, index) => {
         const price = getPriceByPortId(prices, port.portId);
         if (!price) return null;
         let optimalProduct = null;
@@ -288,20 +275,25 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
         return {
             product: optimalProduct,
             priceInPort: price,
-            port
+            port, index
         }
     });
-    const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, ship, obj.port);
-    const profitObj = products.reduce((obj1, obj2) => {
+    const lenToPorts = products.map(obj => {
+        if (!obj) return Infinity;
+        return distance(ship, obj.port);
+    });
+
+    const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, lenToPorts[obj.index]);
+    const profitObj = products.reduce((obj1, obj2, index) => {
         return (profitToPort(obj1) > profitToPort(obj2) ? obj1 : obj2);
-    }, null)
+    }, null);
     return profitObj && profitObj.product;
 }
 
 
 function needSale(gameState) {
     return gameState.ship.goods.length > 0 &&
-        isEqualPosition(findOptimalPort(gameState), gameState.ship)
+        isEqualPosition(findOptimalPort(gameState).port, gameState.ship);
 }
 
 
@@ -315,44 +307,55 @@ function getProductForSale({ship, prices, ports}) {
 }
 
 
-function productProfit(priceInPort, product, ship, port) {
-    return priceInPort[product.name]*product.amount / distance(ship, port);
+function productProfit(priceInPort, product, len) {
+    return priceInPort[product.name]*product.amount / len;
 }
 
 
 function profitOnSale(ship, port, price) {
     let profit = 0;
+    let way = null;
     if (!port.isHome && price) {
         // оперирую расстоянием, считая выгоду как прибыль в еденицу растояни (так как и во времени)
-        profit = ship.goods.map((val, i, arr) => productProfit(price, val, ship, port)).reduce((a, b) => a+b, 0);
+        profit = ship.goods.map((val, i, arr) => {
+            if (price.hasOwnProperty(val.name)) {
+                if (way === null) way = searchWay(ship, port); // ленивая инициализация
+                return productProfit(price, val, isEqualPosition(ship, port) ? 0 : (way.length || Infinity));
+            }
+            return 0;
+        }).reduce((a, b) => a+b, 0);
+    } else {
+        way = searchWay(ship, port);
     }
 
-    return profit;
+    return { profit, way };
 }
 
 
 function findOptimalPort({ship, ports, prices}) {
-    let profitFromMaxPort = profitOnSale(ship, ports[0], getPriceByPortId(prices, ports[0].portId));
+    let { profit, way } = profitOnSale(ship, ports[0], getPriceByPortId(prices, ports[0].portId));
+    let profitFromMaxPort = profit, idealWay = way;
     let indexMax = 0;
     for (let i = 1; i < ports.length; i++) {
         const port = ports[i];
-        const profitFromCurrentPort = profitOnSale(ship, port, getPriceByPortId(prices, port.portId));
+        const { profit, way } = profitOnSale(ship, port, getPriceByPortId(prices, port.portId));
 
-        if (profitFromCurrentPort > profitFromMaxPort) {
+        if (profit > profitFromMaxPort) {
             indexMax = i;
-            profitFromMaxPort = profitFromCurrentPort;
+            profitFromMaxPort = profit;
+            idealWay = way;
         }
     }
-    return ports[indexMax];
+    return { port: ports[indexMax], way: idealWay };
 }
 
 // Движение корабля
 
 function gotoPort(gameState) {
     const ship = gameState.ship;
-    const optimalPort = findOptimalPort(gameState);
-    const way = searchWay(ship, optimalPort);
-    const point = way[0] || optimalPort;
+    const { port, way } = findOptimalPort(gameState);
+    if (port === undefined) return 'WAIT';
+    const point = way[0] || port;
 
     if (ship.y > point.y) {
         return 'N'; // — North, корабль движется вверх по карте
