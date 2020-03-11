@@ -19,11 +19,9 @@ class GameMap {
         pirates.forEach(pirate => {
             const radius = 2;
             for (let i = -radius; i <= radius; i++) {
-                if (pirate.y+i < this.Width && pirate.y+i > 0)
+                if (pirate.y+i < this.Height && pirate.y+i >= 0)
                     this.__pirates[pirate.y+i][pirate.x] = true;
-            }
-            for (let i = -radius; i <= radius; i++) {
-                if (pirate.x+i < this.Width && pirate.x+i > 0)
+                if (pirate.x+i < this.Width && pirate.x+i >= 0)
                     this.__pirates[pirate.y][pirate.x+i] = true;
             }
         });
@@ -135,13 +133,14 @@ class PriorityQueue {
 
 let mapLevel; // так делать не правильно, тк мы теряем иммутебльность и чистоту функций, но задачу поставили именно так, а могли класс экспортировать например
 let lenToPorts;
+let homePort;
 export function startGame(levelMap, gameState) {
     mapLevel = new GameMap(levelMap);
     lenToPorts = {};
-    const HomePort = gameState.ports.reduce((p1, p2) => p2.isHome ? p2 : p1, null);
-    gameState.ports.forEach(port => {
-        lenToPorts[port.portId] = distance(HomePort, port);
-    });
+    homePort = gameState.ports.reduce((p1, p2) => p2.isHome ? p2 : p1, null);
+    // gameState.ports.forEach(port => {
+    //     lenToPorts[port.portId] = manhattanDistance(port, HomePort); // distance(port, HomePort);
+    // });
 }
 
 
@@ -285,7 +284,10 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
             port, index
         }
     });
-
+    products.forEach(obj => {
+        if (obj && obj.product && !lenToPorts.hasOwnProperty(obj.port.portId))
+            lenToPorts[obj.port.portId] = distance(obj.port, homePort); // lazy init
+    });
     const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, lenToPorts[obj.port.portId]);
     const profitObj = products.reduce((obj1, obj2, index) => {
         return (profitToPort(obj1) > profitToPort(obj2) ? obj1 : obj2);
