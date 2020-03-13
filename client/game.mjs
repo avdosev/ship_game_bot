@@ -2,37 +2,25 @@ const MAX_LOAD_SHIP = 368;
 
 class GameMap {
 
-    constructor(levelMap, pirates) {
+    constructor(levelMap) {
         this.__map = levelMap.split('\n');
         const pr = new Array(this.Height);
         for (let i = 0; i < this.Height; i++) {
             pr[i] = (new Uint8Array(this.Width).fill(false));
         }
         this.__pirates = pr;
-        this.__previos_pirates = pirates;
     }
 
     updatePirates(pirates) {
-        this.__previos_pirates = pirates.map((pirate, i) => {
-            return {
-                ...pirate,
-                vector: {
-                    x: pirate.x-this.__previos_pirates[i].x,
-                    y: pirate.y-this.__previos_pirates[i].y
-                }
-            }
-        });
         for (let i = 0; i < this.Height; i++) {
             this.__pirates[i].fill(false);
         }
 
-        this.__previos_pirates.forEach(pirate => {
+        pirates.forEach(pirate => {
             const radius = 1;
-            for (let i = Math.min(-radius, pirate.vector.y*2); i <= Math.max(radius, pirate.vector.y*2); i++) {
+            for (let i = -radius; i <= radius; i++) {
                 if (pirate.y+i < this.Height && pirate.y+i >= 0)
                     this.__pirates[pirate.y+i][pirate.x] = true;
-            }
-            for (let i = Math.min(-radius, pirate.vector.x*2); i <= Math.max(radius, pirate.vector.x*2); i++) {
                 if (pirate.x + i < this.Width && pirate.x + i >= 0)
                     this.__pirates[pirate.y][pirate.x + i] = true;
             }
@@ -146,9 +134,14 @@ class PriorityQueue {
 let mapLevel; // так делать не правильно, тк мы теряем иммутебльность и чистоту функций, но задачу поставили именно так, а могли класс экспортировать например
 let lenToPorts;
 let homePort;
+let productVolume; // dict productname to productvolume
 export function startGame(levelMap, gameState) {
-    mapLevel = new GameMap(levelMap, gameState.pirates);
+    mapLevel = new GameMap(levelMap);
     lenToPorts = {};
+    productVolume = {};
+    gameState.goodsInPort.forEach(good => {
+        productVolume[good.name] = good.volume;
+    });
     homePort = gameState.ports.reduce((p1, p2) => p2.isHome ? p2 : p1, null);
 }
 
@@ -157,13 +150,15 @@ export function getNextCommand(gameState) {
     mapLevel.updatePirates(gameState.pirates);
     const shipOnHome = onHomePort(gameState);
     let command = 'WAIT';
-    if (shipOnHome && canLoadProduct(gameState)) {
+    if (shipOnHome && needLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
         const product = getProductForLoad(gameState);
-        if (product) command = `LOAD ${product.name} ${product.amount}`
+        if (product) command = `LOAD ${product.name} ${product.amount}`;
+        else command = gotoPort(gameState);
     } else if (onTradingPort(gameState) && needSale(gameState)) {
         const product = getProductForSale(gameState);
-        if (product) command = `SELL ${product.name} ${product.amount}`
+        if (product) command = `SELL ${product.name} ${product.amount}`;
+        else command = gotoPort(gameState);
     } else if (gameState.ship.goods.length > 0 || haveGoodsInPort(gameState)) { // уже загрузили товар
         // перемещаемся к цели
         command = gotoPort(gameState);
@@ -226,7 +221,8 @@ function manhattanDistance(obj1, obj2) {
 
 function distance(obj1, obj2) {
     if (isEqualPosition(obj1, obj2)) return 0;
-    return searchWay(obj1, obj2).length || Infinity;
+    const wayLength = searchWay(obj1, obj2).length;
+    return wayLength || Infinity;
 }
 
 
@@ -235,8 +231,24 @@ function haveGoodsInPort(gameState) {
 }
 
 
-function canLoadProduct(gameState) {
-    return gameState.ship.goods.length === 0 && gameState.goodsInPort.length !== 0;
+function freeSpaceInShip(ship) {
+    return ship.goods.reduce((acc, cur) => acc - productVolume[cur.name]*cur.amount, MAX_LOAD_SHIP);
+}
+
+
+function needLoadProduct(gameState) {
+    const freeSpace = freeSpaceInShip(gameState.ship);
+    const thereLoad = freeSpace < MAX_LOAD_SHIP;
+    if (thereLoad) {
+        // возможно мы можем еще догрузить товаров в порт который плывем
+        // TODO: нужно учесть оптимальность подгрузки
+        const port = findOptimalPort(gameState);
+        const price = getPriceByPortId(gameState.prices, port.portId);
+        return (freeSpace >= 50) && gameState.goodsInPort.reduce(
+            (acc, good) => acc || (price.hasOwnProperty(good.name) && good.volume <= freeSpace),
+            false);
+    }
+    return gameState.goodsInPort.length !== 0;
 }
 
 
@@ -268,6 +280,7 @@ function isEqualPosition(obj1, obj2) {
  * считаем что корабль пуст
  */
 function getProductForLoad({goodsInPort, prices, ports, ship}) {
+    const freeSpaceShip = freeSpaceInShip(ship);
     const tradingPorts = ports.filter(port => !port.isHome);
     const products = tradingPorts.map((port, index) => {
         const price = getPriceByPortId(prices, port.portId);
@@ -276,7 +289,7 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
         let max = 0;
         for (const product of goodsInPort) {
             if (price.hasOwnProperty(product.name)) {
-                const amountInShip = Math.min(Math.floor(MAX_LOAD_SHIP / product.volume), product.amount);
+                const amountInShip = Math.min(Math.floor(freeSpaceShip / product.volume), product.amount);
                 const profit = price[product.name]*amountInShip;
                 if (max < profit) {
                     optimalProduct = {
@@ -307,7 +320,7 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
 
 function needSale(gameState) {
     return gameState.ship.goods.length > 0 &&
-        isEqualPosition(findOptimalPort(gameState).port, gameState.ship);
+        isEqualPosition(findOptimalPort(gameState), gameState.ship);
 }
 
 
@@ -328,48 +341,42 @@ function productProfit(priceInPort, product, len) {
 
 function profitOnSale(ship, port, price) {
     let profit = 0;
-    let way = null;
     if (!port.isHome && price) {
         // оперирую расстоянием, считая выгоду как прибыль в еденицу растояни (так как и во времени)
         profit = ship.goods.map((val, i, arr) => {
             if (price.hasOwnProperty(val.name)) {
-                // if (way === null) way = searchWay(ship, port); // ленивая инициализация
                 return productProfit(price, val, manhattanDistance(ship, port));
             }
             return 0;
         }).reduce((a, b) => a+b, 0);
-    } else {
-        // way = searchWay(ship, port);
     }
 
-    return { profit, way };
+    return profit;
 }
 
 
 function findOptimalPort({ship, ports, prices}) {
-    let { profit, way } = profitOnSale(ship, ports[0], getPriceByPortId(prices, ports[0].portId));
-    let profitFromMaxPort = profit, idealWay = way;
+    let profitFromMaxPort = profitOnSale(ship, ports[0], getPriceByPortId(prices, ports[0].portId));
     let indexMax = 0;
     for (let i = 1; i < ports.length; i++) {
         const port = ports[i];
-        const { profit, way } = profitOnSale(ship, port, getPriceByPortId(prices, port.portId));
+        const profit = profitOnSale(ship, port, getPriceByPortId(prices, port.portId));
 
         if (profit > profitFromMaxPort) {
             indexMax = i;
             profitFromMaxPort = profit;
-            idealWay = way;
         }
     }
-    idealWay = searchWay(ship, ports[indexMax]);
-    return { port: ports[indexMax], way: idealWay };
+    return ports[indexMax];
 }
 
 // Движение корабля
 
 function gotoPort(gameState) {
     const ship = gameState.ship;
-    const { port, way } = findOptimalPort(gameState);
+    const port = findOptimalPort(gameState);
     if (port === undefined) return 'WAIT';
+    const way = searchWay(ship, port);
     const point = way[0] || port;
 
     if (ship.y > point.y) {
