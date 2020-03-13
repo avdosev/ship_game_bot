@@ -220,7 +220,7 @@ function manhattanDistance(obj1, obj2) {
 
 
 function distance(obj1, obj2) {
-    if (isEqualPosition(obj1, obj2)) return 0;
+    if (isEqualPosition(obj1, obj2)) return 1;
     const wayLength = searchWay(obj1, obj2).length;
     return wayLength || Infinity;
 }
@@ -244,7 +244,7 @@ function needLoadProduct(gameState) {
         // TODO: нужно учесть оптимальность подгрузки
         const port = findOptimalPort(gameState);
         const price = getPriceByPortId(gameState.prices, port.portId);
-        return (freeSpace >= 50) && gameState.goodsInPort.reduce(
+        return (freeSpace >= 35) && gameState.goodsInPort.reduce(
             (acc, good) => acc || (price.hasOwnProperty(good.name) && good.volume <= freeSpace),
             false);
     }
