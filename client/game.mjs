@@ -2,27 +2,39 @@ const MAX_LOAD_SHIP = 368;
 
 class GameMap {
 
-    constructor(levelMap) {
+    constructor(levelMap, pirates) {
         this.__map = levelMap.split('\n');
         const pr = new Array(this.Height);
         for (let i = 0; i < this.Height; i++) {
             pr[i] = (new Uint8Array(this.Width).fill(false));
         }
         this.__pirates = pr;
+        this.__previos_pirates = pirates;
     }
 
     updatePirates(pirates) {
+        this.__previos_pirates = pirates.map((pirate, i) => {
+            return {
+                ...pirate,
+                vector: {
+                    x: pirate.x-this.__previos_pirates[i].x,
+                    y: pirate.y-this.__previos_pirates[i].y
+                }
+            }
+        });
         for (let i = 0; i < this.Height; i++) {
             this.__pirates[i].fill(false);
         }
 
-        pirates.forEach(pirate => {
-            const radius = 2;
-            for (let i = -radius; i <= radius; i++) {
+        this.__previos_pirates.forEach(pirate => {
+            const radius = 1;
+            for (let i = Math.min(-radius, pirate.vector.y*2); i <= Math.max(radius, pirate.vector.y*2); i++) {
                 if (pirate.y+i < this.Height && pirate.y+i >= 0)
                     this.__pirates[pirate.y+i][pirate.x] = true;
-                if (pirate.x+i < this.Width && pirate.x+i >= 0)
-                    this.__pirates[pirate.y][pirate.x+i] = true;
+            }
+            for (let i = Math.min(-radius, pirate.vector.x*2); i <= Math.max(radius, pirate.vector.x*2); i++) {
+                if (pirate.x + i < this.Width && pirate.x + i >= 0)
+                    this.__pirates[pirate.y][pirate.x + i] = true;
             }
         });
     }
@@ -135,12 +147,9 @@ let mapLevel; // так делать не правильно, тк мы теря
 let lenToPorts;
 let homePort;
 export function startGame(levelMap, gameState) {
-    mapLevel = new GameMap(levelMap);
+    mapLevel = new GameMap(levelMap, gameState.pirates);
     lenToPorts = {};
     homePort = gameState.ports.reduce((p1, p2) => p2.isHome ? p2 : p1, null);
-    // gameState.ports.forEach(port => {
-    //     lenToPorts[port.portId] = manhattanDistance(port, HomePort); // distance(port, HomePort);
-    // });
 }
 
 
