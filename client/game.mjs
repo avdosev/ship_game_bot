@@ -2,28 +2,66 @@ const MAX_LOAD_SHIP = 368;
 
 class GameMap {
 
-    constructor(levelMap) {
+    constructor(levelMap, pirates) {
         this.__map = levelMap.split('\n');
         const pr = new Array(this.Height);
         for (let i = 0; i < this.Height; i++) {
             pr[i] = (new Uint8Array(this.Width).fill(false));
         }
         this.__pirates = pr;
+        this.__previos_pirates = pirates;
     }
 
-    updatePirates(pirates) {
+    updatePirates(pirates, ship) {
+        this.__previos_pirates = pirates.map((pirate, i) => {
+            return {
+                ...pirate,
+                vector: {
+                    x: pirate.x-this.__previos_pirates[i].x,
+                    y: pirate.y-this.__previos_pirates[i].y
+                }
+            }
+        });
         for (let i = 0; i < this.Height; i++) {
             this.__pirates[i].fill(false);
         }
 
-        pirates.forEach(pirate => {
+        this.__previos_pirates.forEach(pirate => {
             const radius = 1;
+
+            const checkX = x => x < this.Width  && x >= 0;
+            const checkY = y => y < this.Height && y >= 0;
+
+            // current position
             for (let i = -radius; i <= radius; i++) {
-                if (pirate.y+i < this.Height && pirate.y+i >= 0)
+                if (checkY(pirate.y+i))
                     this.__pirates[pirate.y+i][pirate.x] = true;
-                if (pirate.x + i < this.Width && pirate.x + i >= 0)
+                if (checkX(pirate.x+i))
                     this.__pirates[pirate.y][pirate.x + i] = true;
             }
+
+            function byVector(vec, callback) {
+                if (vec == 0) return;
+                const magicConst = 3; // Не увлекаемся вектором
+                const dist = magicConst;
+                for (let k = 0; k < dist; k++) {
+                    const val = k*vec;
+                    callback(val);
+                }
+            }
+
+            byVector(pirate.vector.y, (val) => {
+                const y = pirate.y+val;
+                if (checkY(y))
+                    this.__pirates[y][pirate.x] = true;
+            });
+            byVector(pirate.vector.x, (val) => {
+                const x = pirate.x+val;
+                if (checkX(x))
+                    this.__pirates[pirate.y][x] = true;
+            });
+
+
         });
     }
 
@@ -135,19 +173,23 @@ let mapLevel; // так делать не правильно, тк мы теря
 let lenToPorts;
 let homePort;
 let productVolume; // dict productname to productvolume
+let prev_port;
+let prev_way;
 export function startGame(levelMap, gameState) {
-    mapLevel = new GameMap(levelMap);
+    mapLevel = new GameMap(levelMap, gameState.pirates);
     lenToPorts = {};
     productVolume = {};
     gameState.goodsInPort.forEach(good => {
         productVolume[good.name] = good.volume;
     });
+    prev_port = null;
+    prev_way = [];
     homePort = gameState.ports.reduce((p1, p2) => p2.isHome ? p2 : p1, null);
 }
 
 
 export function getNextCommand(gameState) {
-    mapLevel.updatePirates(gameState.pirates);
+    mapLevel.updatePirates(gameState.pirates, gameState.ship);
     const shipOnHome = onHomePort(gameState);
     let command = 'WAIT';
     if (shipOnHome && needLoadProduct(gameState)) {
@@ -238,17 +280,18 @@ function freeSpaceInShip(ship) {
 
 function needLoadProduct(gameState) {
     const freeSpace = freeSpaceInShip(gameState.ship);
-    const thereLoad = freeSpace < MAX_LOAD_SHIP;
-    if (thereLoad) {
+
+    if (freeSpace >= 35) {
         // возможно мы можем еще догрузить товаров в порт который плывем
         // TODO: нужно учесть оптимальность подгрузки
         const port = findOptimalPort(gameState);
         const price = getPriceByPortId(gameState.prices, port.portId);
-        return (freeSpace >= 35) && gameState.goodsInPort.reduce(
-            (acc, good) => acc || (price.hasOwnProperty(good.name) && good.volume <= freeSpace),
+        return port.isHome || gameState.goodsInPort.reduce(
+            (acc, good) => acc || (price.hasOwnProperty(good.name) && good.volume < freeSpace),
             false);
+    } else {
+        return false;
     }
-    return gameState.goodsInPort.length !== 0;
 }
 
 
@@ -371,13 +414,18 @@ function findOptimalPort({ship, ports, prices}) {
 }
 
 // Движение корабля
-
 function gotoPort(gameState) {
     const ship = gameState.ship;
     const port = findOptimalPort(gameState);
     if (port === undefined) return 'WAIT';
     const way = searchWay(ship, port);
     const point = way[0] || port;
+
+    if (prev_port && isEqualPosition(prev_port, port) && prev_way.length+1 === way.length)
+        return 'WAIT';
+
+    prev_port = port;
+    prev_way = way;
 
     if (ship.y > point.y) {
         return 'N'; // — North, корабль движется вверх по карте

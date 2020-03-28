@@ -780,6 +780,67 @@ const level7 = {
     ],
 };
 
+const level8 = {
+    map: `
+~~~~~#########~~~~~
+~~~~~~~##O##~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~#
+###~~~~~~~~~~~~~###
+####~~~~~~~~~~~####
+###~~~~~~~~~~~~~###
+#~~~~~~~~~~~~~~~~~#
+~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+~~~~~~~~#H#~~~~~~~~
+~~~~~~~######~~~~~~
+~~~~~##########~~~~
+    `.trim(),
+    state: {
+        ship: {
+            x: 9,
+            y: 11,
+            goods: [],
+        },
+        score: 0,
+        pirates: [],
+        goodsInPort: [
+            {
+                name: 'fabric',
+                amount: 500,
+                volume: 2,
+            },
+            {
+                name: 'fish',
+                amount: 500,
+                volume: 2,
+            },
+        ],
+        ports: [
+            {
+                portId: 0,
+                x: 9,
+                y: 11,
+                isHome: true,
+            },
+            {
+                portId: 1,
+                x: 9,
+                y: 1,
+                isHome: false,
+            }
+        ],
+        prices: [
+            {
+                portId: 1,
+                fabric: 10,
+                fish: 10,
+            }
+        ]
+    },
+};
+
 export default {
     1: level1,
     2: level2,
@@ -788,4 +849,5 @@ export default {
     5: level5,
     6: level6,
     7: level7,
+    8: level8,
 }
