@@ -169,14 +169,56 @@ class PriorityQueue {
 }
 
 
+class Ship {
+    constructor() {
+        this._command = 'WAIT';
+    }
+
+    get command() {
+        return this._command;
+    }
+
+    wait() {
+        this._command = 'WAIT';
+    }
+
+    toNorth() {
+        this._command = 'N'; // корабль движется вверх по карте
+    }
+
+    toSouth() {
+        this._command = 'S'; // корабль движется вниз по карте
+    }
+
+    toWest() {
+        this._command = 'W'; // корабль движется влево по карте
+    }
+
+    toEast() {
+        this._command = 'E'; // корабль движется вправо по карте
+    }
+
+    load(product) {
+        this._command = `LOAD ${product.name} ${product.amount}`;
+    }
+
+    sell(product) {
+        this._command = `SELL ${product.name} ${product.amount}`;
+    }
+
+}
+
+
 let mapLevel; // так делать не правильно, тк мы теряем иммутебльность и чистоту функций, но задачу поставили именно так, а могли класс экспортировать например
 let lenToPorts;
 let homePort;
 let productVolume; // dict productname to productvolume
 let prev_port;
 let prev_way;
+let ship;
 export function startGame(levelMap, gameState) {
     mapLevel = new GameMap(levelMap, gameState.pirates);
+    ship = new Ship();
     lenToPorts = {};
     productVolume = {};
     gameState.goodsInPort.forEach(good => {
@@ -191,22 +233,22 @@ export function startGame(levelMap, gameState) {
 export function getNextCommand(gameState) {
     mapLevel.updatePirates(gameState.pirates, gameState.ship);
     const shipOnHome = onHomePort(gameState);
-    let command = 'WAIT';
+    ship.wait();
     if (shipOnHome && needLoadProduct(gameState)) {
         // нужно загрузить максимум по максимальной цене
         const product = getProductForLoad(gameState);
-        if (product) command = `LOAD ${product.name} ${product.amount}`;
-        else command = gotoPort(gameState);
+        if (product) ship.load(product);
+        else gotoPort(gameState);
     } else if (onTradingPort(gameState) && needSale(gameState)) {
         const product = getProductForSale(gameState);
-        if (product) command = `SELL ${product.name} ${product.amount}`;
-        else command = gotoPort(gameState);
+        if (product) ship.sell(product);
+        else gotoPort(gameState);
     } else if (gameState.ship.goods.length > 0 || haveGoodsInPort(gameState)) { // уже загрузили товар
         // перемещаемся к цели
-        command = gotoPort(gameState);
+        gotoPort(gameState);
     }
-    // console.log(command);
-    return command;
+
+    return ship.command;
 }
 
 /**
@@ -281,7 +323,7 @@ function freeSpaceInShip(ship) {
 function needLoadProduct(gameState) {
     const freeSpace = freeSpaceInShip(gameState.ship);
 
-    if (freeSpace >= 35) {
+    if (freeSpace >= 10) {
         // возможно мы можем еще догрузить товаров в порт который плывем
         // TODO: нужно учесть оптимальность подгрузки
         const port = findOptimalPort(gameState);
@@ -319,9 +361,13 @@ function isEqualPosition(obj1, obj2) {
     return obj1.x === obj2.x && obj1.y === obj2.y;
 }
 
-/**
- * считаем что корабль пуст
- */
+function maxElement(container, keyCallback, defaultValue = null) {
+    return container.reduce((obj1, obj2) => {
+        return keyCallback(obj1) > keyCallback(obj2) ? obj1 : obj2;
+    }, defaultValue);
+}
+
+
 function getProductForLoad({goodsInPort, prices, ports, ship}) {
     const freeSpaceShip = freeSpaceInShip(ship);
     const tradingPorts = ports.filter(port => !port.isHome);
@@ -333,8 +379,8 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
         for (const product of goodsInPort) {
             if (price.hasOwnProperty(product.name)) {
                 const amountInShip = Math.min(Math.floor(freeSpaceShip / product.volume), product.amount);
-                const profit = price[product.name]*amountInShip;
-                if (max < profit) {
+                const profit = price[product.name] * amountInShip;
+                if (max < profit && amountInShip > 0) {
                     optimalProduct = {
                         name: product.name,
                         amount: amountInShip
@@ -354,9 +400,7 @@ function getProductForLoad({goodsInPort, prices, ports, ship}) {
             lenToPorts[obj.port.portId] = distance(obj.port, homePort); // lazy init
     });
     const profitToPort = (obj) => obj && obj.product && productProfit(obj.priceInPort, obj.product, lenToPorts[obj.port.portId]);
-    const profitObj = products.reduce((obj1, obj2, index) => {
-        return (profitToPort(obj1) > profitToPort(obj2) ? obj1 : obj2);
-    }, null);
+    const profitObj = maxElement(products, profitToPort);
     return profitObj && profitObj.product;
 }
 
@@ -371,9 +415,7 @@ function getProductForSale({ship, prices, ports}) {
     const port = getCurrentPort({ship, ports});
     const priceOnCurrentPort = getPriceByPortId(prices, port.portId);
     const priceWithAmount = (product) => product && (priceOnCurrentPort[product.name]*product.amount);
-    return ship.goods.reduce((obj1, obj2) => {
-        return (priceWithAmount(obj1) > priceWithAmount(obj2) ? obj1 : obj2);
-    }, null);
+    return maxElement(ship.goods, priceWithAmount);
 }
 
 
@@ -415,29 +457,26 @@ function findOptimalPort({ship, ports, prices}) {
 
 // Движение корабля
 function gotoPort(gameState) {
-    const ship = gameState.ship;
+    const shipLocation = gameState.ship;
     const port = findOptimalPort(gameState);
-    if (port === undefined) return 'WAIT';
-    const way = searchWay(ship, port);
-    const point = way[0] || port;
+    const way = searchWay(shipLocation, port);
+    const nextPoint =  way[0] || port;
 
-    if (prev_port && isEqualPosition(prev_port, port) && prev_way.length+1 === way.length)
-        return 'WAIT';
+    if (prev_port && isEqualPosition(prev_port, port) && prev_way.length+1 === way.length) {
+        ship.wait();
+        return;
+    }
 
     prev_port = port;
     prev_way = way;
 
-    if (ship.y > point.y) {
-        return 'N'; // — North, корабль движется вверх по карте
+    if (shipLocation.y > nextPoint.y) {
+        ship.toNorth(); // — North, корабль движется вверх по карте
+    } else if (shipLocation.y < nextPoint.y) {
+        ship.toSouth(); // — South, корабль движется вниз по карте
+    } else if (shipLocation.x > nextPoint.x) {
+        ship.toWest(); // — West, корабль движется влево по карте
+    } else if (shipLocation.x < nextPoint.x) {
+        ship.toEast(); // — East, корабль движется вправо по карте
     }
-    if (ship.y < point.y) {
-        return 'S'; // — South, корабль движется вниз по карте
-    }
-    if (ship.x > point.x) {
-        return 'W'; // — West, корабль движется влево по карте
-    }
-    if (ship.x < point.x) {
-        return 'E'; // — East, корабль движется вправо по карте
-    }
-    return 'WAIT'
 }
